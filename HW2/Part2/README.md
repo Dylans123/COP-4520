@@ -1,0 +1,4 @@
+The three strategies put in terms of parallell computing would essentially amount to
+1. Opportunistically allowing guests (threads) to see the vase. This has the advantage of working really well if a lot of guests aren't trying to see the vase at once, but will not perform well if they are as they're will be a big group of guests (threads) doing nothing well they keep retrying the door.
+2. This would be implementing a "lock" of sorts in the form of the sign on the door that says "AVAILABLE" or "BUSY". This is advantageous as the threads can still go back and do other things but they don't know when to return to the door and likely will have to retry many times before it is available.
+3. The final method of implementing a queue of threads is best since 
