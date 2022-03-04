@@ -20,6 +20,8 @@ public class Solution {
     }
 
     public static void participantSimulation() {
+        // If the cupcake is there and this person has not gotten the cupcake, get the cupcake
+        // and persist it into the array.
         if (cupcake.get() && !gottenCupcake[currentPersonInMaze.get()]) {
             cupcake.set(false);
             gottenCupcake[currentPersonInMaze.get()] = true;
@@ -27,6 +29,8 @@ public class Solution {
     }
 
     public static void counterSimulation() {
+        // If the cupcake isn't there, replace it since your the counter and increment the count in
+        // your head
         if (!cupcake.get()) {
             numberOfTimesCupcakeGone.getAndIncrement();
             cupcake.set(true);
@@ -34,6 +38,7 @@ public class Solution {
     }
 
     public static void winningProtocol(int numberOfParticipants) {
+        // Initialize the array to keep track of whos eaten the cupcake and initialize the participants (threads)
         numberOfThreads = numberOfParticipants;
 
         gottenCupcake = new boolean[numberOfParticipants + 1];
@@ -44,8 +49,10 @@ public class Solution {
             threads[i] = new Thread(Solution::participantSimulation);
         }
 
+        // Initialize the counter (thread)
         threads[numberOfThreads - 1] = new Thread(Solution::counterSimulation);
 
+        // Randomly pick people to go through the maze until everyone has eaten the cupcake
         while (numberOfTimesCupcakeGone.get() < N - 1) {
             Random r = new Random();
             int high = 100;

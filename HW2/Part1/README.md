@@ -1,0 +1,2 @@
+### Strategy
+The strategy in order for everyone to be able to get through the maze and get the cupcake is to have one person essentially keep count in their head, and everytime someone else goes through the maze if the cupcake is there and they haven't eaten it they should eat the cupcake. When the designated counter goes through if the cupcake isn't there he should replace it and increment the count in his head. This way everyone else will eat the cupcake once and the counter will know when his count reaches n-1 to just eat the cupcake and report everyone has tried it.
