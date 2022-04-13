@@ -1,15 +1,10 @@
 import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 import java.util.logging.Level;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 
 public class Solution {
@@ -17,60 +12,49 @@ public class Solution {
     static int[] presents; 
     static PresentList presentLinkedList;
     static final AtomicInteger thankYouCount = new AtomicInteger(0);
-    static final AtomicInteger atomicCounter = new AtomicInteger(0);
+    static final AtomicInteger addCounter = new AtomicInteger(0);
     static final AtomicInteger topOuts = new AtomicInteger(-1);
     static final AtomicBoolean timeToRemove = new AtomicBoolean(false);
     static boolean[] thankYouWritten;
     static final int N = 500000;
+    static final int CHUNK_SIZE = 5000;
     static Logger logger = Logger.getLogger(Solution.class.getName());
 
     public static void main(String[] args) {
         writeThankYouNotes(N);
     }
 
+    // Method to represent the work done by each of the servants (threads)
     public static void servantSimulation() {
+        // Generate a random number to decide to check if list contains or add to list when not removing
         Random r = new Random();
-        int high = 4;
+        int high = 3;
         int low = 1;
+
+        // Continue to run the thread while we haven't satisfied writing a thank you note for every present
         while (thankYouCount.get() < N) {
-            // if (presentLinkedList.getLength() > 1000) {
-            //     // System.out.println("setting it");
-            //     high = 3;
-            //     atomicCounter.set(0);
-            // } else {
-            //     high = 4;
-            // }
+            // Whether to check if a present is contained or add to list
             int result = r.nextInt(high - low) + low;
-            // System.out.println(result);
-            // int topVal = topOuts.get();
-            // System.out.println(atomicCounter.get());
-            if (atomicCounter.get() - thankYouCount.get() >= 5000) {
+
+            // Keep atomic counter to know how many have been added and removed and when we're 5000 into adding new elements to linked
+            // list start removing and reset counter to save on memory
+            if (addCounter.get() - thankYouCount.get() >= CHUNK_SIZE) {
                 timeToRemove.set(!timeToRemove.get());
-                atomicCounter.set(0);
-                // System.out.println("doing it");
-                // System.out.println(topVal+1);
-                // System.out.println(atomicCounter.get());
+                addCounter.set(0);
                 continue;
             }
-            int count = atomicCounter.getAndIncrement();
-            // if (count > N) {
-            //     continue;
-            // }
+
+            // Increment counter determining what present we're currently looking at
+            int count = addCounter.getAndIncrement();
+
+            // Handle race case where one thread is done before others, just keep continuing until lagging thread catches up
+            if (count > N) {
+                continue;
+            }
+
+            // If we've alternated to removing start removing, otherwise add if the thank you note hasn't been written or check if its contained randomly.
             int present = presents[count];
-            // int passNum = topOuts.get() / N;
-            // if (presentLinkedList.getLength() % 501 == 0 && presentLinkedList.getLength() != 0) {
-            //     System.out.println("==========");
-            //     System.out.println(thankYouCount.get());
-            //     System.out.println(presentLinkedList.getLength());
-            //     System.out.println("==========");
-            // }
-            // if (thankYouCount.get() % 501 == 0 && thankYouCount.get() != 0) {
-            //     System.out.println("==========");
-            //     System.out.println(thankYouCount.get());
-            //     System.out.println(presentLinkedList.getLength());
-            //     System.out.println("==========");
-            // }
-            if (timeToRemove.get() && result % 2 == 1) {
+            if (timeToRemove.get()) {
                 boolean wasRemoved = presentLinkedList.remove(present);
                 if (wasRemoved) {
                     thankYouWritten[present] = true;
@@ -87,10 +71,13 @@ public class Solution {
     }
 
     public static void writeThankYouNotes(int numberOfPresents) {
-        // Initialize the array to keep track of whos eaten the cupcake and initialize the participants (threads)
         numberOfThreads = 4;
         presents = new int[N+1];
+
+        // Initialize lock free linked list data structure to store presents
         presentLinkedList = new PresentList();
+
+        // Initialize presents and whether we've written a thank you note or not for that present as arrays
         thankYouWritten = new boolean[N+1];
         Arrays.fill(thankYouWritten, false);
 
@@ -98,6 +85,9 @@ public class Solution {
             presents[i] = i;
         }
 
+        Long startTime = System.currentTimeMillis();
+
+        // Run four threads to handle computation
         Thread[] threads = new Thread[numberOfThreads];
         for (int i = 0; i < numberOfThreads; ++i) {
             threads[i] = new Thread(Solution::servantSimulation);
@@ -113,24 +103,22 @@ public class Solution {
             Thread.currentThread().interrupt();
         }
 
-        System.out.println("done");
+        // Log end time and results
+        Long endTime = System.currentTimeMillis();
+
+        System.out.println(thankYouCount.get() + " thank you notes have been written in " + (endTime - startTime) + "ms.");
+        System.out.println("There are " + presentLinkedList.getLength() + " presents left in the list to write thank you notes for.");
     }
 }
 
-// class Present {
-//     public int numberOfPresent;
-
-//     public Present(int numberOfPresent) {
-//         this.numberOfPresent = numberOfPresent;
-//     }
-// }
-
+// Interface for lock free linked list
 interface PresentSet {
     public boolean add(int x);
     public boolean remove(int x);
     public boolean contains(int x);
 }   
 
+// Class for finding in window
 class Window {
     public Node pred;
     public Node curr;
@@ -139,28 +127,31 @@ class Window {
     }
 }
 
+// Class for node in linked list
 class Node {
     public int key;
     public AtomicMarkableReference<Node> next;
 
-    Node(int key) {      // usual constructor
+    Node(int key) {
         this.key = key;
         this.next = new AtomicMarkableReference<Node>(null, false);
     }
 }
 
+// Implementation of lock free linked list from textbook
 class PresentList implements PresentSet {
     public Node head;
-    public int length;
+    public AtomicInteger length;
 
     public PresentList() {
+        this.length = new AtomicInteger(0);
         this.head  = new Node(Integer.MIN_VALUE);
         Node tail = new Node(Integer.MAX_VALUE);
         while (!head.next.compareAndSet(null, tail, false, false));
     }
 
     public int getLength() {
-        return this.length;
+        return this.length.get();
     }
 
     public boolean remove(int key) {
@@ -180,7 +171,7 @@ class PresentList implements PresentSet {
                     continue;
                 }
                 pred.next.compareAndSet(curr, succ, false, false);
-                this.length -= 1;
+                this.length.getAndDecrement();
                 return true;
             }
         }
@@ -199,7 +190,7 @@ class PresentList implements PresentSet {
                 Node node = new Node(key);
                 node.next = new AtomicMarkableReference<Node>(curr, false);
                 if (pred.next.compareAndSet(curr, node, false, false)) {
-                    this.length +=  1;
+                    this.length.getAndIncrement();
                     return true;
                 }
             }
@@ -208,7 +199,7 @@ class PresentList implements PresentSet {
 
     public boolean contains(int key) {
         Window window = find(head, key);
-        Node pred = window.pred, curr = window.curr;
+        Node curr = window.curr;
         return (curr.key == key);
     }
     

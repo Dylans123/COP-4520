@@ -1,15 +1,8 @@
-import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicMarkableReference;
 import java.util.logging.Level;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.Comparator;
 
@@ -46,14 +39,15 @@ public class Solution {
     }
 
     public static void performReadings() {
-        // Initialize the array to keep track of whos eaten the cupcake and initialize the participants (threads)
         numberOfThreads = 8;
 
         priorityQueueLowTemp = new PriorityBlockingQueue<Integer>(100, new LowComparator());
         priorityQueueHighTemp = new PriorityBlockingQueue<Integer>(100, new HighComparator());
         priorityQueueTenMinuteRunning = new PriorityBlockingQueue<TenMinuteInterval>(100, new TenMinuteComparator());
 
-        System.out.println("Begginning Collecting Readings...");
+        System.out.println("Begginning collecting readings...");
+
+        Long startTime = System.currentTimeMillis();
 
         Thread[] threads = new Thread[numberOfThreads];
         for (int i = 0; i < numberOfThreads; ++i) {
@@ -70,11 +64,12 @@ public class Solution {
             Thread.currentThread().interrupt();
         }
 
-        System.out.println("Finished Collecting Readings");
+        Long endTime = System.currentTimeMillis();
+
+        System.out.println("Finished collecting readings in " + (endTime - startTime) + " ms");
 
         List<String> top5Temps = new ArrayList<>();
         List<String> bottom5Temps = new ArrayList<>();
-
 
         for (int i = 0; i < 5; ++i) {
             top5Temps.add(String.valueOf(priorityQueueHighTemp.poll()));
