@@ -14,10 +14,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Solution {
     static int numberOfThreads;
-    static ConcurrentLinkedQueue<Present> presents; 
+    static int[] presents; 
     static PresentList presentLinkedList;
     static final AtomicInteger thankYouCount = new AtomicInteger(0);
     static final AtomicInteger atomicCounter = new AtomicInteger(0);
+    static final AtomicInteger topOuts = new AtomicInteger(-1);
+    static final AtomicBoolean timeToRemove = new AtomicBoolean(false);
     static boolean[] thankYouWritten;
     static final int N = 500000;
     static Logger logger = Logger.getLogger(Solution.class.getName());
@@ -27,25 +29,57 @@ public class Solution {
     }
 
     public static void servantSimulation() {
+        Random r = new Random();
+        int high = 4;
+        int low = 1;
         while (thankYouCount.get() < N) {
-            Present present = presents.peek();
-            int count = atomicCounter.getAndIncrement();
-            if (thankYouCount.get() % 10000 == 0 && thankYouCount.get() != 0) {
-                System.out.println(thankYouCount.get());
-                System.out.println(presents.size());
-                System.out.println(presentLinkedList.getLength());
+            // if (presentLinkedList.getLength() > 1000) {
+            //     // System.out.println("setting it");
+            //     high = 3;
+            //     atomicCounter.set(0);
+            // } else {
+            //     high = 4;
+            // }
+            int result = r.nextInt(high - low) + low;
+            // System.out.println(result);
+            // int topVal = topOuts.get();
+            // System.out.println(atomicCounter.get());
+            if (atomicCounter.get() - thankYouCount.get() >= 5000) {
+                timeToRemove.set(!timeToRemove.get());
+                atomicCounter.set(0);
+                // System.out.println("doing it");
+                // System.out.println(topVal+1);
+                // System.out.println(atomicCounter.get());
+                continue;
             }
-            if (count % 3 == 0) {
+            int count = atomicCounter.getAndIncrement();
+            // if (count > N) {
+            //     continue;
+            // }
+            int present = presents[count];
+            // int passNum = topOuts.get() / N;
+            // if (presentLinkedList.getLength() % 501 == 0 && presentLinkedList.getLength() != 0) {
+            //     System.out.println("==========");
+            //     System.out.println(thankYouCount.get());
+            //     System.out.println(presentLinkedList.getLength());
+            //     System.out.println("==========");
+            // }
+            // if (thankYouCount.get() % 501 == 0 && thankYouCount.get() != 0) {
+            //     System.out.println("==========");
+            //     System.out.println(thankYouCount.get());
+            //     System.out.println(presentLinkedList.getLength());
+            //     System.out.println("==========");
+            // }
+            if (timeToRemove.get() && result % 2 == 1) {
                 boolean wasRemoved = presentLinkedList.remove(present);
                 if (wasRemoved) {
-                    presents.poll();
-                    thankYouWritten[present.numberOfPresent] = true;
+                    thankYouWritten[present] = true;
                     thankYouCount.getAndIncrement();
                 }
-            } else if (count % 2 == 0) {
-                // if (!thankYouWritten[present.numberOfPresent]) {
-                presentLinkedList.add(present);
-                // }
+            } else if (!timeToRemove.get() && result % 2 == 0) {
+                if (!thankYouWritten[present]) {
+                    presentLinkedList.add(present);
+                }
             } else {
                 presentLinkedList.contains(present);
             }
@@ -55,14 +89,13 @@ public class Solution {
     public static void writeThankYouNotes(int numberOfPresents) {
         // Initialize the array to keep track of whos eaten the cupcake and initialize the participants (threads)
         numberOfThreads = 4;
-        presents = new ConcurrentLinkedQueue<>();
+        presents = new int[N+1];
         presentLinkedList = new PresentList();
-        thankYouWritten = new boolean[N];
+        thankYouWritten = new boolean[N+1];
         Arrays.fill(thankYouWritten, false);
 
-        for (int i = 1; i < numberOfPresents + 1; ++i) {
-            Present present = new Present(i);
-            presents.add(present);
+        for (int i = 0; i < numberOfPresents; ++i) {
+            presents[i] = i;
         }
 
         Thread[] threads = new Thread[numberOfThreads];
@@ -84,18 +117,18 @@ public class Solution {
     }
 }
 
-class Present {
-    public int numberOfPresent;
+// class Present {
+//     public int numberOfPresent;
 
-    public Present(int numberOfPresent) {
-        this.numberOfPresent = numberOfPresent;
-    }
-}
+//     public Present(int numberOfPresent) {
+//         this.numberOfPresent = numberOfPresent;
+//     }
+// }
 
 interface PresentSet {
-    public boolean add(Present x);
-    public boolean remove(Present x);
-    public boolean contains(Present x);
+    public boolean add(int x);
+    public boolean remove(int x);
+    public boolean contains(int x);
 }   
 
 class Window {
@@ -107,13 +140,11 @@ class Window {
 }
 
 class Node {
-    public Present item;
     public int key;
     public AtomicMarkableReference<Node> next;
 
-    Node(Present item) {      // usual constructor
-        this.item = item;
-        this.key = item.numberOfPresent;
+    Node(int key) {      // usual constructor
+        this.key = key;
         this.next = new AtomicMarkableReference<Node>(null, false);
     }
 }
@@ -123,8 +154,8 @@ class PresentList implements PresentSet {
     public int length;
 
     public PresentList() {
-        this.head  = new Node(new Present(Integer.MIN_VALUE));
-        Node tail = new Node(new Present(Integer.MAX_VALUE));
+        this.head  = new Node(Integer.MIN_VALUE);
+        Node tail = new Node(Integer.MAX_VALUE);
         while (!head.next.compareAndSet(null, tail, false, false));
     }
 
@@ -132,8 +163,7 @@ class PresentList implements PresentSet {
         return this.length;
     }
 
-    public boolean remove(Present item) {
-        int key = item.numberOfPresent;
+    public boolean remove(int key) {
         boolean snip;
         while (true) {
             // find predecessor and curren entries
@@ -156,9 +186,7 @@ class PresentList implements PresentSet {
         }
     }
 
-    public boolean add(Present item) {
-        int key = item.numberOfPresent;
-        boolean splice;
+    public boolean add(int key) {
         while (true) {
             // find predecessor and curren entries
             Window window = find(head, key);
@@ -168,7 +196,7 @@ class PresentList implements PresentSet {
                 return false;
             } else {
                 // splice in new node
-                Node node = new Node(item);
+                Node node = new Node(key);
                 node.next = new AtomicMarkableReference<Node>(curr, false);
                 if (pred.next.compareAndSet(curr, node, false, false)) {
                     this.length +=  1;
@@ -178,8 +206,7 @@ class PresentList implements PresentSet {
         }
     }
 
-    public boolean contains(Present item) {
-        int key = item.numberOfPresent;
+    public boolean contains(int key) {
         Window window = find(head, key);
         Node pred = window.pred, curr = window.curr;
         return (curr.key == key);
